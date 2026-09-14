@@ -15,7 +15,7 @@ notify = "8.2.0"
 open = "5.4.0"
 serde = { version = "1.0.228", features = ["derive"] }
 toml = "1.1.2"
-tray-icon = "0.24.1"
+tray-icon = "0.25.0"
 anyhow = "1.0.103"
 dirs = "6.0.0"
 tao = "0.35.3"
