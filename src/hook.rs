@@ -22,12 +22,13 @@ pub fn run_hook_thread(state: Arc<AppState>) {
 
 	std::thread::spawn(|| {
 		if let Err(e) = listen(handle_event) {
-			eprintln!("[hook] не удалось запустить глобальный листенер: {e:?}");
+			eprintln!("[hook] failed to start global listener: {e:?}");
 		}
 	});
 }
 
 fn handle_event(event: Event) {
+    println!("[event] {:?}", event.event_type);
 	match event.event_type {
 		EventType::KeyPress(key) => {
 			hotkeys::update_modifier_state(key, true);
@@ -73,7 +74,7 @@ fn try_trigger_hotkey(key: RdevKey) -> bool {
 	match hotkeys::find_match(key, &config.keybinds) {
 		Some(text) => {
 			let text = text.to_string();
-			println!("[hook] сработала комбинация клавиш (процесс: {current_process:?})");
+			println!("[hook] the key combination worked (process: {current_process:?})");
 			drop(config);
 			expand(0, &text);
 			true
@@ -125,7 +126,7 @@ fn handle_char(ch: char) {
 	};
 
 	if let Some((key, replacement)) = matched {
-		println!("[hook] сработал снипет {key:?} (процесс: {current_process:?})");
+		println!("[hook] the snippet worked {key:?} (process: {current_process:?})");
 		// erase the key itself + space trigger, then print the replacement and return the space
 		let backspaces = key.chars().count() + 1;
 		let text_to_type = if replacement.ends_with(char::is_whitespace) {
@@ -134,8 +135,19 @@ fn handle_char(ch: char) {
 			format!("{replacement} ")
 		};
 		buffer.clear();
-		drop(buffer);
-		drop(config);
-		expand(backspaces, &text_to_type);
+        println!(
+            "[debug] snippet={key:?}, replacement={replacement:?}, backspaces={backspaces}"
+        );
+        buffer.clear();
+        drop(buffer);
+        drop(config);
+
+        std::thread::spawn(move || {
+            // Let's let handle the physical spacebar
+            // and wait for the original keyboard event to complete.
+            std::thread::sleep(std::time::Duration::from_millis(30));
+
+            expand(backspaces, &text_to_type);
+        });
 	}
 }
