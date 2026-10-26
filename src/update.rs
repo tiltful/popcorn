@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-const REPO: &str = "t1ltxz-gxd/popcorn";
+const REPO: &str = "tiltful/popcorn";
 const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug, Deserialize)]
