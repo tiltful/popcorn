@@ -11,6 +11,14 @@ pub enum Mode {
 	Whitelist,
 }
 
+#[derive(Debug, Deserialize, Clone, Copy, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum InsertionMode {
+	#[default]
+	Type,
+	Paste,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct GeneralConfig {
 	pub mode: Mode,
@@ -21,6 +29,9 @@ pub struct GeneralConfig {
 	/// (e.g. "/z" is recognized as ".я").
 	#[serde(default)]
 	pub translate_layout: bool,
+	/// How to insert the snippet text: type it or paste it.
+	#[serde(default)]
+	pub insertion_mode: InsertionMode,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -56,6 +67,8 @@ apps = ["Discord.exe", "Telegram.exe"]
 # recognize an abbreviation, even if it is printed in English
 # layout with the same physical keys (".я" == "/z")
 translate_layout = true
+# How to insert the snippet text: type it or paste it. ("paste" is faster, but some apps block it. Or you can use "type" mode, which is slower but works everywhere.)
+insertion_mode = "type"
 
 [snippets]
 ".hi" = "Hello, world!"

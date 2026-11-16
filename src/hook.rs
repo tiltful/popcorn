@@ -9,38 +9,37 @@ use crate::hotkeys;
 use crate::layout::translate_en_to_ru;
 use crate::state::AppState;
 
-// The rdev callback does not know how to capture the environment by value as conveniently as
-// like a closure with move in a separate thread, so the state is static.
+// The rdev callback does not know how to capture the environment by value
+// as conveniently as a closure with move in a separate thread, so the state is static.
 static STATE: OnceLock<Arc<AppState>> = OnceLock::new();
 static BUFFER: OnceLock<Mutex<InputBuffer>> = OnceLock::new();
 
 /// Runs the global keyboard listener on a separate thread.
-/// `rdev::listen` blocks the thread, so we run it on a separate one.
 pub fn run_hook_thread(state: Arc<AppState>) {
 	STATE.set(state).ok();
 	BUFFER.set(Mutex::new(InputBuffer::new())).ok();
 
 	std::thread::spawn(|| {
-		if let Err(e) = listen(handle_event) {
-			eprintln!("[hook] failed to start global listener: {e:?}");
+		if let Err(error) = listen(handle_event) {
+			eprintln!("[hook] failed to start global listener: {error:?}");
 		}
 	});
 }
 
 fn handle_event(event: Event) {
-    println!("[event] {:?}", event.event_type);
+	println!("[event] {:?}", event.event_type);
+
 	match event.event_type {
 		EventType::KeyPress(key) => {
 			hotkeys::update_modifier_state(key, true);
 
-			// if the key combination worked, we don’t count it
-			// symbol for the buffer of regular snippets
+			// If the key combination worked, do not count it
+			// as a character for the regular snippets buffer.
 			if try_trigger_hotkey(key) {
 				return;
 			}
 
-			// event.name is a symbol already translated for the current layout,
-			// comes only to KeyPress for keys that print text
+			// event.name is already translated for the current keyboard layout.
 			if let Some(text) = event.name {
 				for ch in text.chars() {
 					handle_char(ch);
@@ -54,8 +53,7 @@ fn handle_event(event: Event) {
 	}
 }
 
-/// Checks if the current combination of modifiers + key
-/// matches one of the bindings in the config, and if so, prints the associated text.
+/// Checks whether the current key combination matches a configured hotkey.
 fn try_trigger_hotkey(key: RdevKey) -> bool {
 	let Some(state) = STATE.get() else {
 		return false;
@@ -67,6 +65,7 @@ fn try_trigger_hotkey(key: RdevKey) -> bool {
 
 	let config = state.config.read().unwrap();
 	let current_process = get_foreground_process_name();
+
 	if !should_expand(&config, current_process.as_deref()) {
 		return false;
 	}
@@ -74,9 +73,15 @@ fn try_trigger_hotkey(key: RdevKey) -> bool {
 	match hotkeys::find_match(key, &config.keybinds) {
 		Some(text) => {
 			let text = text.to_string();
-			println!("[hook] the key combination worked (process: {current_process:?})");
+			let insertion_mode = config.general.insertion_mode;
+
+			println!(
+				"[hook] hotkey triggered (process: {current_process:?}, mode: {insertion_mode:?})"
+			);
+
 			drop(config);
-			expand(0, &text);
+
+			expand(insertion_mode, 0, &text);
 			true
 		}
 		None => false,
@@ -84,7 +89,10 @@ fn try_trigger_hotkey(key: RdevKey) -> bool {
 }
 
 fn handle_char(ch: char) {
-	let Some(state) = STATE.get() else { return };
+	let Some(state) = STATE.get() else {
+		return;
+	};
+
 	let Some(buffer_lock) = BUFFER.get() else {
 		return;
 	};
@@ -95,6 +103,7 @@ fn handle_char(ch: char) {
 
 	let config = state.config.read().unwrap();
 	let current_process = get_foreground_process_name();
+
 	if !should_expand(&config, current_process.as_deref()) {
 		return;
 	}
@@ -102,19 +111,17 @@ fn handle_char(ch: char) {
 	let mut buffer = buffer_lock.lock().unwrap();
 	buffer.push(ch);
 
-	// We try to match the snippet only by the trigger — pressing space.
-	// Any other characters just accumulate in the buffer.
+	// Snippets are matched only when the user presses Space.
 	if ch != ' ' {
 		return;
 	}
 
 	let text = buffer.as_string();
-	// text without the just entered space - we look for the prefix using it
+
+	// Remove the just-entered space before matching.
 	let prefix = &text[..text.len() - ch.len_utf8()];
 
-	// first we try as is, and if we don’t find it and the option is enabled -
-	// try the same string, “translated” from the EN layout to RU
-	// (for example, "/z" is recognized as ".я")
+	// First try the original text, then optionally try EN -> RU translation.
 	let translated;
 	let matched = match match_snippet(prefix, &config.snippets) {
 		Some(found) => Some(found),
@@ -126,28 +133,40 @@ fn handle_char(ch: char) {
 	};
 
 	if let Some((key, replacement)) = matched {
-		println!("[hook] the snippet worked {key:?} (process: {current_process:?})");
-		// erase the key itself + space trigger, then print the replacement and return the space
+		let key = key.to_string();
+		let replacement = replacement.to_string();
+		let insertion_mode = config.general.insertion_mode;
+
+		println!(
+			"[hook] snippet triggered {key:?} \
+             (process: {current_process:?}, mode: {insertion_mode:?})"
+		);
+
+		// Erase the abbreviation and the triggering space.
 		let backspaces = key.chars().count() + 1;
-		let text_to_type = if replacement.ends_with(char::is_whitespace) {
-			replacement.to_string()
+
+		// Preserve the original behavior: append a space unless
+		// the replacement already ends with whitespace.
+		let text_to_insert = if replacement.ends_with(char::is_whitespace) {
+			replacement
 		} else {
 			format!("{replacement} ")
 		};
+
+		println!(
+			"[debug] snippet={key:?}, replacement={text_to_insert:?}, backspaces={backspaces}"
+		);
+
 		buffer.clear();
-        println!(
-            "[debug] snippet={key:?}, replacement={replacement:?}, backspaces={backspaces}"
-        );
-        buffer.clear();
-        drop(buffer);
-        drop(config);
 
-        std::thread::spawn(move || {
-            // Let's let handle the physical spacebar
-            // and wait for the original keyboard event to complete.
-            std::thread::sleep(std::time::Duration::from_millis(30));
+		drop(buffer);
+		drop(config);
 
-            expand(backspaces, &text_to_type);
-        });
+		std::thread::spawn(move || {
+			// Let the physical spacebar event complete first.
+			std::thread::sleep(std::time::Duration::from_millis(30));
+
+			expand(insertion_mode, backspaces, &text_to_insert);
+		});
 	}
 }
