@@ -98,10 +98,10 @@ pub fn should_expand(config: &Config, current_process: Option<&str>) -> bool {
 
 /// Monitors changes in the toml file and rereads the config in `AppState`.
 pub fn watch_config(state: Arc<crate::state::AppState>) -> Result<()> {
-    use notify::{RecursiveMode, Watcher};
-    use std::sync::mpsc::channel;
+	use notify::{RecursiveMode, Watcher};
+	use std::sync::mpsc::channel;
 
-    let (tx, rx) = channel();
+	let (tx, rx) = channel();
 	let mut watcher = notify::recommended_watcher(move |res| {
 		let _ = tx.send(res);
 	})?;

@@ -2690,7 +2690,7 @@ dependencies = [
 
 [[package]]
 name = "popcorn"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",

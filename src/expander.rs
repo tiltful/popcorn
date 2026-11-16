@@ -104,12 +104,39 @@ fn paste_text(backspaces: usize, text: &str) {
 		}
 	}
 
+	let previous = match clipboard::get_text() {
+		Ok(text) => text,
+		Err(error) => {
+			eprintln!("[expander] failed to save clipboard: {error:#}");
+			return;
+		}
+	};
+
 	if let Err(error) = clipboard::set_text(text) {
 		eprintln!("[expander] failed to set clipboard text: {error:#}");
+		restore_clipboard(previous);
 		return;
 	}
 
-	if let Err(error) = clipboard::paste() {
+	let paste_result = clipboard::paste();
+
+	// Give the target application time to read the clipboard.
+	std::thread::sleep(std::time::Duration::from_millis(100));
+
+	if let Err(error) = paste_result {
 		eprintln!("[expander] failed to paste clipboard text: {error:#}");
+	}
+
+	restore_clipboard(previous);
+}
+
+fn restore_clipboard(previous: Option<String>) {
+	let result = match previous {
+		Some(text) => clipboard::set_text(&text),
+		None => clipboard::clear(),
+	};
+
+	if let Err(error) = result {
+		eprintln!("[expander] failed to restore clipboard: {error:#}");
 	}
 }
