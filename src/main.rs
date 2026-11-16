@@ -1,3 +1,6 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod clipboard;
 mod config;
 mod expander;
 mod focus;
