@@ -79,8 +79,8 @@ fn modifiers_match(h: &Hotkey) -> bool {
 /// with the Hotkey.key part (the one that comes after ^!+# in the config).
 /// Covers letters, numbers, F1-F12 and basic function keys.
 fn key_to_name(key: RdevKey) -> Option<&'static str> {
-	use RdevKey::*;
-	Some(match key {
+    use RdevKey::*;
+    Some(match key {
 		KeyA => "a",
 		KeyB => "b",
 		KeyC => "c",

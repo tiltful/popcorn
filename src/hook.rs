@@ -39,6 +39,12 @@ fn handle_event(event: Event) {
 				return;
 			}
 
+			// Keep the snippets buffer in sync when editing text.
+			if key == RdevKey::Backspace {
+				handle_backspace();
+				return;
+			}
+
 			// event.name is already translated for the current keyboard layout.
 			if let Some(text) = event.name {
 				for ch in text.chars() {
@@ -51,6 +57,30 @@ fn handle_event(event: Event) {
 		}
 		_ => {}
 	}
+}
+
+fn handle_backspace() {
+	let Some(state) = STATE.get() else {
+		return;
+	};
+
+	let Some(buffer_lock) = BUFFER.get() else {
+		return;
+	};
+
+	if state.is_paused() {
+		return;
+	}
+
+	let config = state.config.read().unwrap();
+	let current_process = get_foreground_process_name();
+
+	if !should_expand(&config, current_process.as_deref()) {
+		return;
+	}
+
+	let mut buffer = buffer_lock.lock().unwrap();
+	buffer.pop();
 }
 
 /// Checks whether the current key combination matches a configured hotkey.

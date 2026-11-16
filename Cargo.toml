@@ -1,11 +1,11 @@
 [package]
 name = "popcorn"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["Tilt <git@tilt.ninja>"]
 description = "{{description}}"
 license = "MIT"
-repository = "https://github.com/t1lxz-gxd/popcorn"
+repository = "https://github.com/tiltful/popcorn"
 keywords = ["rust", "template"]
 categories = ["development-tools", "command-line-utilities"]
 readme = "README.md"
@@ -31,6 +31,7 @@ windows = { version = "0.62.2", features = [
   "Win32_Foundation",
   "Win32_System_DataExchange",
   "Win32_System_Memory",
+  "Win32_UI_WindowsAndMessaging",
 ] }
 ureq = { version = "3.3.0", features = ["json"] }
 enigo = "0.6.1"

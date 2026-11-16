@@ -26,6 +26,10 @@ impl InputBuffer {
 		}
 	}
 
+	pub fn pop(&mut self) {
+		self.buf.pop_back();
+	}
+
 	pub fn clear(&mut self) {
 		self.buf.clear();
 	}

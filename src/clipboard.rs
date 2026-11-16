@@ -1,14 +1,14 @@
 use anyhow::{Context, Result, bail};
 use std::mem::size_of;
-use std::ptr::null_mut;
-use windows::Win32::Foundation::{HANDLE, HWND};
+use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::DataExchange::{
-	CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
+    CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
 };
 use windows::Win32::System::Memory::{GMEM_MOVEABLE, GlobalAlloc, GlobalLock, GlobalUnlock};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-	INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput, VIRTUAL_KEY,
+    INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput, VIRTUAL_KEY,
 };
+use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
 
 const CF_UNICODETEXT: u32 = 13;
 const VK_CONTROL: VIRTUAL_KEY = VIRTUAL_KEY(0x11);
@@ -22,7 +22,7 @@ pub fn set_text(text: &str) -> Result<()> {
 	let byte_len = utf16.len() * size_of::<u16>();
 
 	unsafe {
-		OpenClipboard(Option::from(HWND(null_mut()))).context("Failed to open clipboard")?;
+		OpenClipboard(Option::from(GetForegroundWindow())).context("Failed to open clipboard")?;
 
 		let result = (|| -> Result<()> {
 			EmptyClipboard().context("Failed to empty clipboard")?;
@@ -37,7 +37,7 @@ pub fn set_text(text: &str) -> Result<()> {
 
 			std::ptr::copy_nonoverlapping(utf16.as_ptr(), pointer.cast::<u16>(), utf16.len());
 
-			GlobalUnlock(memory).expect("Failed to unlock clipboard memory");
+            let _ = GlobalUnlock(memory);
 
 			SetClipboardData(CF_UNICODETEXT, Option::from(HANDLE(memory.0)))
 				.context("Failed to set clipboard data")?;
